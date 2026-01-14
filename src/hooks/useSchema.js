@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
+import localXlsxUrl from '../assets/Book1.xlsx?url';
+
 const COLUMN_MAPPING_KEY = 'dashboard_column_mapping_v2';
 const GSHEET_ID_KEY = 'dashboard_gsheet_id';
 
@@ -56,6 +58,14 @@ const WHITELISTED_SHEETS = [
    } catch {
      return false;
    }
+ }
+
+ function extractFirstUrl(input) {
+   if (!input) return '';
+   const srcMatch = input.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
+   if (srcMatch && srcMatch[1]) return srcMatch[1];
+   const urlMatch = input.match(/https?:\/\/[^\s"'<>]+/i);
+   return urlMatch ? urlMatch[0] : input;
  }
 
 export function useSchema() {
@@ -197,6 +207,23 @@ export function useSchema() {
     }
   }, [getAutoMapping]);
 
+  const reloadLocalFile = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(localXlsxUrl);
+      if (!response.ok) {
+        throw new Error(`فشل تحميل الملف المحلي / Failed to load local file. (${response.status} ${response.statusText})`);
+      }
+      const buffer = await response.arrayBuffer();
+      handleExcelData(buffer, 'Local Data');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [handleExcelData]);
+
   const syncRemoteFile = useCallback(async (input = gsheetId) => {
     if (!input) return;
     setIsLoading(true);
@@ -204,7 +231,7 @@ export function useSchema() {
     try {
       let url = '';
 
-      const trimmedInput = input.trim();
+      const trimmedInput = extractFirstUrl(input).trim();
       if (!/^https?:\/\//i.test(trimmedInput)) {
         throw new Error('الرابط غير صالح. يجب أن يبدأ بـ http:// أو https:// / Invalid URL. Must start with http:// or https://');
       }
@@ -276,8 +303,8 @@ export function useSchema() {
 
       handleExcelData(buffer, 'Remote Data');
 
-      setGsheetId(input);
-      localStorage.setItem(GSHEET_ID_KEY, input);
+      setGsheetId(trimmedInput);
+      localStorage.setItem(GSHEET_ID_KEY, trimmedInput);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -341,8 +368,8 @@ export function useSchema() {
   }, []);
 
   useEffect(() => {
-    if (gsheetId && data.length === 0) {
-      syncRemoteFile(gsheetId);
+    if (data.length === 0) {
+      reloadLocalFile();
     }
   }, []);
 
@@ -370,6 +397,7 @@ export function useSchema() {
     removeSheet,
     updateMapping,
     resetMapping,
+    reloadLocalFile,
     gsheetId,
     syncGoogleSheet,
     saveGsheetId

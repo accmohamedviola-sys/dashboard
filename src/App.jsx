@@ -38,7 +38,8 @@ function App() {
     resetMapping,
     gsheetId,
     syncGoogleSheet,
-    saveGsheetId
+    saveGsheetId,
+    reloadLocalFile
   } = useSchema();
 
   const [filters, setFilters] = useState({ project: '', status: '' });
@@ -84,7 +85,7 @@ function App() {
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {gsheetId && (
             <button
-              onClick={() => syncGoogleSheet()}
+              onClick={reloadLocalFile}
               className="btn"
               style={{ background: 'var(--accent-teal)', color: 'var(--bg-deep)' }}
               title="تحديث من جوجل / Sync from Google"
@@ -164,7 +165,7 @@ function App() {
                   className="btn"
                   style={{ flex: 1 }}
                   onClick={() => {
-                    syncGoogleSheet(tempGsheetId);
+                    reloadLocalFile();
                     setShowSettings(false);
                   }}
                 >
