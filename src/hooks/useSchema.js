@@ -9,6 +9,7 @@ const GSHEET_ID_KEY = 'dashboard_gsheet_id';
 
 const WHITELISTED_SHEETS = [
   'مشروع قيم و تغير',
+  'مشروع قيم و عبر',
   'MSA PROJECT',
   'DORO PROJECT',
   'NURSERY PROJECT'
@@ -91,7 +92,7 @@ export function useSchema() {
   const [error, setError] = useState(null);
 
   const getAutoMapping = useCallback((sheetName) => {
-    if (['DORO PROJECT', 'MSA PROJECT', 'مشروع قيم و تغير'].includes(sheetName)) {
+    if (['DORO PROJECT', 'MSA PROJECT', 'مشروع قيم و تغير', 'مشروع قيم و عبر'].includes(sheetName)) {
       return { status: 'حالة السكربت', project: 'حالة السكربت', assignee: '' };
     }
     if (sheetName === 'NURSERY PROJECT') {
