@@ -226,136 +226,19 @@ export function useSchema() {
   }, [handleExcelData]);
 
   const syncRemoteFile = useCallback(async (input = gsheetId) => {
-    if (!input) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      let url = '';
-
-      const trimmedInput = extractFirstUrl(input).trim();
-      if (!/^https?:\/\//i.test(trimmedInput)) {
-        throw new Error('الرابط غير صالح. يجب أن يبدأ بـ http:// أو https:// / Invalid URL. Must start with http:// or https://');
-      }
-      const directDownload = toOneDriveDownloadUrl(trimmedInput);
-
-      if (directDownload) {
-        url = directDownload;
-      } else if (trimmedInput.includes('1drv.ms') || trimmedInput.includes('onedrive.live.com')) {
-        const resolvedLink = tryDecodeRedeemLink(trimmedInput);
-        const base64 = base64UrlEncode(resolvedLink);
-        url = `https://api.onedrive.com/v1.0/shares/u!${base64}/root/content`;
-      } else if (trimmedInput.includes('google.com')) {
-        const cleanId = trimmedInput.includes('/d/') ? trimmedInput.split('/d/')[1].split('/')[0] : trimmedInput;
-        url = `https://docs.google.com/spreadsheets/d/${cleanId}/export?format=xlsx`;
-      } else {
-        url = trimmedInput;
-      }
-
-      console.info('[syncRemoteFile] requesting:', url);
-
-      let response = await fetch(url);
-      console.info('[syncRemoteFile] response:', { url: response.url, status: response.status, type: response.type });
-      if (!response.ok) {
-        let details = '';
-        try {
-          const text = await response.text();
-          details = text ? ` - ${text.slice(0, 200)}` : '';
-        } catch {
-          details = '';
-        }
-        throw new Error(
-          `فشل الوصول للملف. تأكد أن الرابط عام (Public) / Access failed. Ensure the link is public. (${response.status} ${response.statusText})${details}`
-        );
-      }
-
-      let buffer = await response.arrayBuffer();
-      if (!looksLikeXlsx(buffer)) {
-        const fallback = toOneDriveDownloadUrl(response.url) || toOneDriveDownloadUrl(trimmedInput);
-        if (fallback && fallback !== url) {
-          response = await fetch(fallback);
-          if (!response.ok) {
-            let details = '';
-            try {
-              const text = await response.text();
-              details = text ? ` - ${text.slice(0, 200)}` : '';
-            } catch {
-              details = '';
-            }
-            throw new Error(
-              `فشل الوصول للملف. تأكد أن الرابط عام (Public) / Access failed. Ensure the link is public. (${response.status} ${response.statusText})${details}`
-            );
-          }
-          buffer = await response.arrayBuffer();
-        }
-      }
-
-      if (!looksLikeXlsx(buffer)) {
-        let snippet = '';
-        try {
-          const bytes = new Uint8Array(buffer);
-          snippet = new TextDecoder().decode(bytes.slice(0, 400)).slice(0, 200);
-        } catch {
-          snippet = '';
-        }
-        throw new Error(
-          `الرابط الموفر يؤدي إلى صفحة ويب بدلاً من ملف. يرجى التأكد من الرابط / Provided link leads to a web page, not a file. (requested: ${url} | final: ${response.url})${snippet ? ` - ${snippet}` : ''}`
-        );
-      }
-
-      handleExcelData(buffer, 'Remote Data');
-
-      setGsheetId(trimmedInput);
-      localStorage.setItem(GSHEET_ID_KEY, trimmedInput);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    // Google Sheets / remote sync has been disabled and moved to legacy/syncHandlers.js
+    // Keep signature for compatibility but do nothing.
+    console.warn('[syncRemoteFile] Google Sheets sync is disabled in this build.');
+    setError('مزامنة Google Sheets معطلة — يتم استخدام الملف المحلي المرفق.');
   }, [gsheetId, handleExcelData]);
 
   const syncGoogleSheet = syncRemoteFile;
 
   const parseFile = useCallback((file, selectedEncoding = 'UTF-8') => {
-    setEncoding(selectedEncoding);
-    setIsLoading(true);
-    setError(null);
-    const fileName = file.name.toLowerCase();
-
-    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        handleExcelData(e.target.result, file.name);
-        setIsLoading(false);
-      };
-      reader.onerror = () => {
-        setError("خطأ في قراءة الملف / File read error");
-        setIsLoading(false);
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        encoding: selectedEncoding,
-        complete: (results) => {
-          if (results.data && results.data.length > 0) {
-            const csvData = results.data;
-            setData(csvData);
-            setColumns(Object.keys(csvData[0]));
-            setSheets({ [file.name]: csvData });
-            setSheetNames([file.name]);
-            setCurrentSheet(file.name);
-          }
-          setIsLoading(false);
-        },
-        error: (error) => {
-          console.error('Parsing error:', error);
-          setError("خطأ في تحليل ملف CSV");
-          setIsLoading(false);
-        }
-      });
-    }
-  }, [handleExcelData]);
+    // File upload is disabled — use the bundled local Excel file included with the site.
+    console.warn('[parseFile] File upload is disabled in this build.');
+    setError('رفع الملفات معطل — يتم استخدام الملف المحلي المرفق.');
+  }, []);
 
   const updateMapping = useCallback((newMapping) => {
     setMapping(newMapping);
