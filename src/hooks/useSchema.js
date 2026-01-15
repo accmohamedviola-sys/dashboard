@@ -8,7 +8,6 @@ const COLUMN_MAPPING_KEY = 'dashboard_column_mapping_v2';
 const GSHEET_ID_KEY = 'dashboard_gsheet_id';
 
 const WHITELISTED_SHEETS = [
-  'مشروع قيم و تغير',
   'مشروع قيم و عبر',
   'MSA PROJECT',
   'DORO PROJECT',
@@ -75,6 +74,7 @@ export function useSchema() {
   const [sheets, setSheets] = useState({});
   const [sheetNames, setSheetNames] = useState([]);
   const [currentSheet, setCurrentSheet] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(() => localStorage.getItem('dashboard_last_updated') || '');
 
   const [mapping, setMapping] = useState(() => {
     const saved = localStorage.getItem(COLUMN_MAPPING_KEY);
@@ -92,11 +92,11 @@ export function useSchema() {
   const [error, setError] = useState(null);
 
   const getAutoMapping = useCallback((sheetName) => {
-    if (['DORO PROJECT', 'MSA PROJECT', 'مشروع قيم و تغير', 'مشروع قيم و عبر'].includes(sheetName)) {
-      return { status: 'حالة السكربت', project: 'حالة السكربت', assignee: '' };
+    if (['DORO PROJECT', 'MSA PROJECT', 'مشروع قيم و عبر'].includes(sheetName)) {
+      return { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' };
     }
     if (sheetName === 'NURSERY PROJECT') {
-      return { status: 'حالة الاغنية', project: 'حالة الاغنية', assignee: '' };
+      return { status: 'حالة الاغنية ', project: 'اسم الاغنية ', assignee: 'الانيميتور' };
     }
     return null;
   }, []);
@@ -180,6 +180,9 @@ export function useSchema() {
         }
       });
 
+      console.log('📊 Sheets loaded:', names);
+      console.log('📋 Sheet data:', Object.keys(newSheets).map(n => ({ name: n, rows: newSheets[n].length, columns: newSheets[n].length > 0 ? Object.keys(newSheets[n][0]) : [] })));
+
       setSheets(newSheets);
       setSheetNames(names);
 
@@ -197,9 +200,13 @@ export function useSchema() {
 
         // Auto-map for the initial sheet
         const auto = getAutoMapping(targetSheet);
+        console.log(`🔍 Sheet "${targetSheet}" - Auto-mapping attempt:`, { auto, columns: cols, statusFound: auto && cols.includes(auto.status), projectFound: auto && cols.includes(auto.project) });
         if (auto && cols.includes(auto.status)) {
           setMapping(auto);
           localStorage.setItem(COLUMN_MAPPING_KEY, JSON.stringify(auto));
+          console.log(`✅ Auto-mapping applied for "${targetSheet}":`, auto);
+        } else if (auto) {
+          console.log(`⚠️ Auto-mapping failed for "${targetSheet}": columns mismatch. Expected status="${auto.status}" or project="${auto.project}", but found columns:`, cols);
         }
       }
     } catch (err) {
@@ -217,6 +224,11 @@ export function useSchema() {
         throw new Error(`فشل تحميل الملف المحلي / Failed to load local file. (${response.status} ${response.statusText})`);
       }
       const buffer = await response.arrayBuffer();
+      // try to read Last-Modified header from the response, fall back to now
+      const lm = response.headers.get('last-modified');
+      const dateIso = lm ? new Date(lm).toISOString() : new Date().toISOString();
+      setLastUpdated(dateIso);
+      localStorage.setItem('dashboard_last_updated', dateIso);
       handleExcelData(buffer, 'Local Data');
     } catch (err) {
       setError(err.message);
@@ -284,6 +296,7 @@ export function useSchema() {
     reloadLocalFile,
     gsheetId,
     syncGoogleSheet,
-    saveGsheetId
+    saveGsheetId,
+    lastUpdated
   };
 }

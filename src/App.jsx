@@ -6,11 +6,9 @@ import { ColumnMapper } from './components/ColumnMapper';
 import { StatCard } from './components/StatCard';
 import { StatusChart } from './components/StatusChart';
 import { ProjectPieChart } from './components/ProjectPieChart';
-import { Filters } from './components/Filters';
 import {
   Upload,
   LayoutDashboard,
-  RefreshCcw,
   PieChart as PieIcon,
   Activity,
   Settings,
@@ -31,7 +29,8 @@ function loadDashboardSettings() {
         enabledSheets: [],
         defaultSheet: '',
         lockSheetSelection: false,
-        perSheetFilters: {}
+        perSheetFilters: {},
+        perSheetMappings: {}
       };
     }
     const parsed = JSON.parse(raw);
@@ -40,7 +39,8 @@ function loadDashboardSettings() {
       enabledSheets: Array.isArray(parsed?.enabledSheets) ? parsed.enabledSheets : [],
       defaultSheet: typeof parsed?.defaultSheet === 'string' ? parsed.defaultSheet : '',
       lockSheetSelection: Boolean(parsed?.lockSheetSelection),
-      perSheetFilters: parsed?.perSheetFilters && typeof parsed.perSheetFilters === 'object' ? parsed.perSheetFilters : {}
+      perSheetFilters: parsed?.perSheetFilters && typeof parsed?.perSheetFilters === 'object' ? parsed.perSheetFilters : {},
+      perSheetMappings: parsed?.perSheetMappings && typeof parsed?.perSheetMappings === 'object' ? parsed.perSheetMappings : {}
     };
   } catch {
     return {
@@ -48,7 +48,8 @@ function loadDashboardSettings() {
       enabledSheets: [],
       defaultSheet: '',
       lockSheetSelection: false,
-      perSheetFilters: {}
+      perSheetFilters: {},
+      perSheetMappings: {}
     };
   }
 }
@@ -73,6 +74,8 @@ function App() {
     syncGoogleSheet,
     saveGsheetId,
     reloadLocalFile
+    ,
+    lastUpdated
   } = useSchema();
 
   const isAdminParam = useMemo(() => {
@@ -93,7 +96,11 @@ function App() {
   const updateDashboardSettings = useCallback((updater) => {
     setDashboardSettings((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (next === prev) return prev;
+      try {
+        if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      } catch {
+        if (next === prev) return prev;
+      }
       localStorage.setItem(DASHBOARD_SETTINGS_KEY, JSON.stringify(next));
       return next;
     });
@@ -120,6 +127,16 @@ function App() {
   const projectData = useMemo(() => getProjectData(data, mapping, filters), [data, mapping, filters]);
   const projects = useMemo(() => getUniqueValues(data, mapping.project), [data, mapping.project]);
   const statuses = useMemo(() => getUniqueValues(data, mapping.status), [data, mapping.status]);
+
+  const formattedLastUpdated = useMemo(() => {
+    if (!lastUpdated) return '';
+    try {
+      const d = new Date(lastUpdated);
+      return new Intl.DateTimeFormat('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' }).format(d);
+    } catch {
+      return lastUpdated;
+    }
+  }, [lastUpdated]);
 
   useEffect(() => {
     if (!showSettings) return;
@@ -148,6 +165,46 @@ function App() {
     setFilters((prev) => (JSON.stringify(prev) === JSON.stringify(nextFilters) ? prev : nextFilters));
     setSelectedCategory((prev) => (prev === nextCategory ? prev : nextCategory));
   }, [currentSheet]);
+
+  // Persist provided default schema mappings for known project sheets
+  useEffect(() => {
+    if (!sheetNames || sheetNames.length === 0) return;
+    const DEFAULT_MAPPINGS = {
+      'NURSERY PROJECT': { status: 'حالة الاغنية ', project: 'اسم الاغنية ', assignee: 'الانيميتور' },
+      'DORO PROJECT': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' },
+      'MSA PROJECT': { status: 'حالة السكربت', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' },
+      'مشروع قيم و تغير': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' },
+      'مشروع قيم و عبر': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' }
+    };
+
+    updateDashboardSettings((prev) => {
+      const existing = prev.perSheetMappings || {};
+      let changed = false;
+      const next = { ...existing };
+      Object.entries(DEFAULT_MAPPINGS).forEach(([name, map]) => {
+        if (!sheetNames.includes(name)) return;
+        if (!next[name] || JSON.stringify(next[name]) !== JSON.stringify(map)) {
+          next[name] = map;
+          changed = true;
+        }
+      });
+      if (!changed) return prev;
+      return { ...prev, perSheetMappings: next };
+    });
+  }, [sheetNames, updateDashboardSettings]);
+
+  // Auto-apply per-sheet mapping when currentSheet changes (use useRef to avoid circular dependency)
+  const lastAppliedSheetRef = useRef('');
+  useEffect(() => {
+    if (!currentSheet) return;
+    if (lastAppliedSheetRef.current === currentSheet) return;
+    
+    const perMap = dashboardSettings?.perSheetMappings?.[currentSheet];
+    if (!perMap) return;
+    
+    lastAppliedSheetRef.current = currentSheet;
+    updateMapping(perMap);
+  }, [currentSheet, dashboardSettings?.perSheetMappings, updateMapping]);
 
   useEffect(() => {
     if (!currentSheet) return;
@@ -221,7 +278,13 @@ function App() {
 
       {/* Header Statum */}
       <header>
-        <div></div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          {formattedLastUpdated ? (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>الداتا آخر تحديث يوم {formattedLastUpdated}</div>
+          ) : (
+            <div style={{ height: '18px' }}></div>
+          )}
+        </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           
@@ -246,16 +309,7 @@ function App() {
             </>
           )}
 
-          {showAdminControls && data.length > 0 && (
-            <button
-              onClick={resetMapping}
-              className="btn"
-              style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.2)' }}
-              title="إعادة ضبط / Reset"
-            >
-              <RefreshCcw size={18} />
-            </button>
-          )}
+          {/* Reset button removed */}
         </div>
 
       </header>
@@ -442,6 +496,31 @@ function App() {
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
+                  <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        const sheet = settingsSheet;
+                        // persist mapping for this sheet and make it default immediately
+                        updateDashboardSettings((prev) => {
+                          const next = {
+                            ...prev,
+                            defaultSheet: sheet,
+                            perSheetMappings: {
+                              ...(prev.perSheetMappings || {}),
+                              [sheet]: mapping
+                            }
+                          };
+                          return next;
+                        });
+                        // apply mapping now
+                        updateMapping(mapping);
+                        if (visibleSheetNames.includes(sheet)) switchSheet(sheet);
+                      }}
+                    >
+                      حفظ التعيين وجعله افتراضي
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -487,14 +566,7 @@ function App() {
           </div>
         ) : (
           <>
-            {showAdminControls && (
-              <Filters
-                projects={projects}
-                statuses={statuses}
-                currentFilters={filters}
-                onFilterChange={handleFilterChange}
-              />
-            )}
+            {/* Top filters panel removed per user request */}
 
             {visibleSheetNames.length > 1 && !dashboardSettings.lockSheetSelection && (
               <div className="sheet-selector animate-fade-in" style={{ margin: '24px 0' }}>

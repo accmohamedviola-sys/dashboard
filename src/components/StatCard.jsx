@@ -22,10 +22,9 @@ export function StatCard({ label, value, color = 'blue', onClick, active }) {
                 cursor: 'pointer'
             }}
         >
-            <div className="stat-label">{label}</div>
             <div className="stat-value">{value}</div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', color: color === 'orange' ? 'var(--accent-amber)' : 'var(--accent-teal)', fontSize: '1rem', fontWeight: 600 }}>
-                {label.includes('ALL') ? 'ACTIVE STRATA' : 'VOLUMETRIC DATA'}
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', color: color === 'orange' ? 'var(--accent-amber)' : 'var(--accent-teal)', fontSize: '1.15rem', fontWeight: 700, marginTop: '6px' }}>
+                {label.includes('ALL') ? `عدد السكربتات: ${value}` : label}
             </div>
         </div>
     );
