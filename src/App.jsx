@@ -485,20 +485,6 @@ function App() {
             <h2 className="text-3xl font-black">إدخال البيانات مطلوب / INPUT REQUIRED</h2>
             <p className="text-slate-400">يرجى رفع ملف لبدء المعالجة الذكية.</p>
           </div>
-        ) : !isConfigured ? (
-          <div className="configuration-view">
-            <div style={{ padding: '24px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--silica-border)' }}>
-              <h3 className="section-title" style={{ marginBottom: '12px' }}>إعدادات البيانات / Schema Setup</h3>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                إعداد المخطط الآن يتم مرة واحدة من لوحة الإعدادات. افتح لوحة الإعدادات واضغط "إعداد المخطط" لحفظ الخرائط.
-              </p>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button className="btn" onClick={() => { setShowSettings(true); setShowSchemaSetup(true); }}>
-                  اذهب للإعدادات / Open Settings
-                </button>
-              </div>
-            </div>
-          </div>
         ) : (
           <>
             {showAdminControls && (
