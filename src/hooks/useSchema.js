@@ -93,10 +93,10 @@ export function useSchema() {
 
   const getAutoMapping = useCallback((sheetName) => {
     if (['DORO PROJECT', 'MSA PROJECT', 'مشروع قيم و عبر'].includes(sheetName)) {
-      return { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' };
+      return { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور', duration: 'مدة الصوت' };
     }
     if (sheetName === 'NURSERY PROJECT') {
-      return { status: 'حالة الاغنية ', project: 'اسم الاغنية ', assignee: 'الانيميتور' };
+      return { status: 'حالة الاغنية ', project: 'اسم الاغنية ', assignee: 'الانيميتور', duration: 'مدة الاغنية ' };
     }
     return null;
   }, []);
@@ -180,9 +180,6 @@ export function useSchema() {
         }
       });
 
-      console.log('📊 Sheets loaded:', names);
-      console.log('📋 Sheet data:', Object.keys(newSheets).map(n => ({ name: n, rows: newSheets[n].length, columns: newSheets[n].length > 0 ? Object.keys(newSheets[n][0]) : [] })));
-
       setSheets(newSheets);
       setSheetNames(names);
 
@@ -200,13 +197,9 @@ export function useSchema() {
 
         // Auto-map for the initial sheet
         const auto = getAutoMapping(targetSheet);
-        console.log(`🔍 Sheet "${targetSheet}" - Auto-mapping attempt:`, { auto, columns: cols, statusFound: auto && cols.includes(auto.status), projectFound: auto && cols.includes(auto.project) });
         if (auto && cols.includes(auto.status)) {
           setMapping(auto);
           localStorage.setItem(COLUMN_MAPPING_KEY, JSON.stringify(auto));
-          console.log(`✅ Auto-mapping applied for "${targetSheet}":`, auto);
-        } else if (auto) {
-          console.log(`⚠️ Auto-mapping failed for "${targetSheet}": columns mismatch. Expected status="${auto.status}" or project="${auto.project}", but found columns:`, cols);
         }
       }
     } catch (err) {

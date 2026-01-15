@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import clsx from 'clsx';
 import { useSchema } from './hooks/useSchema';
-import { getSummaryStats, getChartData, getProjectData, getUniqueValues } from './utils/dataTransformer';
+import { getSummaryStats, getChartData, getProjectData, getUniqueValues, getDurationByStatus, formatDuration, formatDurationAsHours } from './utils/dataTransformer';
 import { ColumnMapper } from './components/ColumnMapper';
 import { StatCard } from './components/StatCard';
 import { StatusChart } from './components/StatusChart';
@@ -15,7 +15,9 @@ import {
   Cpu,
   Search,
   ChevronRight,
-  X
+  X,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 const DASHBOARD_SETTINGS_KEY = 'dashboard_view_settings_v1';
@@ -121,12 +123,31 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('_all');
   const [settingsSheet, setSettingsSheet] = useState('');
   const [showSchemaSetup, setShowSchemaSetup] = useState(false);
+  const [durationMode, setDurationMode] = useState('minutes'); // 'minutes' or 'hours'
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('dashboard_theme');
+    return saved ? saved === 'dark' : true;
+  });
 
   const stats = useMemo(() => getSummaryStats(data, mapping), [data, mapping]);
   const chartData = useMemo(() => getChartData(data, mapping, filters), [data, mapping, filters]);
   const projectData = useMemo(() => getProjectData(data, mapping, filters), [data, mapping, filters]);
   const projects = useMemo(() => getUniqueValues(data, mapping.project), [data, mapping.project]);
   const statuses = useMemo(() => getUniqueValues(data, mapping.status), [data, mapping.status]);
+
+  // Detect duration column name from available columns
+  const durationColumn = useMemo(() => {
+    if (!columns) return null;
+    const durationKeywords = ['مدة', 'duration', 'وقت'];
+    return columns.find(col => durationKeywords.some(kw => col.toLowerCase().includes(kw.toLowerCase())));
+  }, [columns]);
+
+  const mappingWithDuration = useMemo(() => ({
+    ...mapping,
+    duration: durationColumn
+  }), [mapping, durationColumn]);
+
+  const durationByStatus = useMemo(() => getDurationByStatus(data, mappingWithDuration), [data, mappingWithDuration]);
 
   const formattedLastUpdated = useMemo(() => {
     if (!lastUpdated) return '';
@@ -170,11 +191,11 @@ function App() {
   useEffect(() => {
     if (!sheetNames || sheetNames.length === 0) return;
     const DEFAULT_MAPPINGS = {
-      'NURSERY PROJECT': { status: 'حالة الاغنية ', project: 'اسم الاغنية ', assignee: 'الانيميتور' },
-      'DORO PROJECT': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' },
-      'MSA PROJECT': { status: 'حالة السكربت', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' },
-      'مشروع قيم و تغير': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' },
-      'مشروع قيم و عبر': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور' }
+      'NURSERY PROJECT': { status: 'حالة الاغنية ', project: 'اسم الاغنية ', assignee: 'الانيميتور', duration: 'مدة الاغنية ' },
+      'DORO PROJECT': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور', duration: 'مدة الصوت' },
+      'MSA PROJECT': { status: 'حالة السكربت', project: 'اسم السكربت', assignee: 'اسم الأنيميتور', duration: 'مدة الصوت' },
+      'مشروع قيم و تغير': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور', duration: 'مدة الصوت' },
+      'مشروع قيم و عبر': { status: 'حالة السكربت ', project: 'اسم السكربت', assignee: 'اسم الأنيميتور', duration: 'مدة الصوت' }
     };
 
     updateDashboardSettings((prev) => {
@@ -195,6 +216,15 @@ function App() {
 
   // Auto-apply per-sheet mapping when currentSheet changes (use useRef to avoid circular dependency)
   const lastAppliedSheetRef = useRef('');
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+    localStorage.setItem('dashboard_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
   useEffect(() => {
     if (!currentSheet) return;
     if (lastAppliedSheetRef.current === currentSheet) return;
@@ -291,6 +321,15 @@ function App() {
 
           {showAdminControls && (
             <>
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="btn"
+                style={{ background: 'var(--silica-white)', color: 'var(--accent-teal)' }}
+                title={isDarkMode ? 'وضع نهاري / Light Mode' : 'وضع ليلي / Dark Mode'}
+              >
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+
               <button
                 onClick={() => {
                   setTempGsheetId(gsheetId);
@@ -603,6 +642,51 @@ function App() {
                 ))}
             </div>
 
+            {/* Duration by Status Display */}
+            {durationByStatus && Object.keys(durationByStatus).length > 0 && (
+              <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }} className="animate-fade-in">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 600, margin: 0 }}>المدة الزمنية لكل حالة</h4>
+                  <button
+                    onClick={() => setDurationMode(durationMode === 'minutes' ? 'hours' : 'minutes')}
+                    style={{ padding: '4px 12px', background: 'var(--accent-teal)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                  >
+                    {durationMode === 'minutes' ? 'اضغط لـ ساعات' : 'اضغط لـ دقائق'}
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                  {Object.entries(durationByStatus).map(([status, minutes]) => (
+                    <div
+                      key={status}
+                      onClick={() => setDurationMode(durationMode === 'minutes' ? 'hours' : 'minutes')}
+                      style={{
+                        padding: '12px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        textAlign: 'center'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
+                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                      }}
+                    >
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '6px' }}>{status}</div>
+                      <div style={{ color: 'var(--accent-teal)', fontSize: '1.2rem', fontWeight: 700, fontFamily: 'JetBrains Mono' }}>
+                        {durationMode === 'minutes' ? formatDuration(minutes) : formatDurationAsHours(minutes)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '32px' }} className="animate-fade-in">
               <StatusChart data={chartData} />
               <ProjectPieChart data={projectData} />
@@ -620,7 +704,6 @@ function App() {
                         <th>المشروع / PROJECT</th>
                         <th>الحالة / STATUS</th>
                         {mapping.assignee && <th>المسؤول / SOURCE</th>}
-                        <th style={{ textAlign: 'center' }}>نسبة الإنجاز / HEALTH</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -631,11 +714,6 @@ function App() {
                             <span style={{ color: 'var(--accent-teal)' }}>{row[mapping.status]}</span>
                           </td>
                           {mapping.assignee && <td style={{ color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono' }}>{row[mapping.assignee]}</td>}
-                          <td style={{ textAlign: 'center' }}>
-                            <div style={{ width: '100px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', display: 'inline-block', overflow: 'hidden' }}>
-                              <div style={{ width: (row[mapping.status] === 'مكتمل' || row[mapping.status] === 'Done') ? '100%' : '30%', height: '100%', background: 'var(--accent-teal)' }}></div>
-                            </div>
-                          </td>
                         </tr>
                       ))}
                     </tbody>

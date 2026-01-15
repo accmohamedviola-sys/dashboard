@@ -11,6 +11,17 @@
   --glass-blur: blur(20px);
 }
 
+:root[data-theme="light"] {
+  --bg-deep: #f8f9fa;
+  --silica-white: rgba(0, 0, 0, 0.04);
+  --silica-border: rgba(0, 0, 0, 0.08);
+  --accent-teal: #16a085;
+  --accent-amber: #d68a3a;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --glass-blur: blur(20px);
+}
+
 * {
   margin: 0;
   padding: 0;
