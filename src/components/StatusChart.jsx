@@ -19,7 +19,7 @@ export function StatusChart({ data }) {
     return (
         <div className="chart-container" style={{ minHeight: '400px' }}>
             <h3 className="chart-header">
-                توزيع وحالة العمل / VOLUMETRIC STATUS
+                توزيع وحالة العمل
             </h3>
             <ResponsiveContainer width="100%" height="85%">
                 <BarChart data={data} margin={{ top: 25, right: 10, left: -10, bottom: 20 }}>

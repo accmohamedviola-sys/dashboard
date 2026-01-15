@@ -16,7 +16,7 @@ export function ProjectPieChart({ data }) {
     return (
         <div className="chart-container" style={{ minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
             <h3 className="chart-header">
-                توزيع العمل حسب المشاريع / PROJECT STRATA
+                توزيع العمل حسب المشاريع
             </h3>
             <div className="flex-grow">
                 <ResponsiveContainer width="100%" height="100%">
